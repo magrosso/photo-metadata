@@ -26,12 +26,12 @@ import os
 from pathlib import Path
 
 
-photo_root_folder: Path = Path("e:/photo/2023")
+photo_root_folder: Path = Path("e:/photo")
 skip_folders: tuple[Path] = ("scan", "slides")
 image_type_dict = {"dng": 0, "nef": 0, "raf": 0, "rw2": 0, "jpg": 0, "tif": 0}
 image_type_count = Counter(image_type_dict)
 image_type_count_with_xmp = Counter(image_type_dict)
-image_type_count_without_xmp = Counter(image_type_dict)
+missing_xmp_per_folder = Counter(image_type_dict)
 missing_xmp_path_list: set[str] = set()
 
 
@@ -45,9 +45,9 @@ def main():
             total_skipped_folder_count += 1
             continue
         total_file_count_per_folder += len(files)
-        # print(f"{dir_path}: {total_file_count} files")
         if total_file_count_per_folder == 0:
             continue
+        # for each file in current image folder
         for file in files:
             file_type: str = Path(file).suffix.lower()[1:]
             if file_type in image_type_count.keys():
@@ -57,40 +57,19 @@ def main():
                     # image_xmp_file.touch()
                     image_type_count_with_xmp[file_type] += 1
                 else:
-                    image_type_count_without_xmp[file_type] += 1
+                    missing_xmp_per_folder[file_type] += 1
                     missing_xmp_path_list.add(dir_path)
-        # stats per image type
-        print(f"{dir_path}: {total_file_count_per_folder} files total")
+        # stats per image folder with missing xmp files
+        if missing_xmp_per_folder.total() > 0:
+            print(f"{dir_path}: {total_file_count_per_folder} files total")
         for image_type, count in image_type_count.items():
-            print(
-                f"{image_type}: {count} (missing xmp: {image_type_count_without_xmp[image_type]})"
-            )
+            if missing_xmp_per_folder[image_type] > 0:
+                print(
+                    f"\t{image_type.upper()}: {count} image files (missing xmp: {missing_xmp_per_folder[image_type]})"
+                )
             image_type_count[image_type] = 0
-            image_type_count_without_xmp[image_type] = 0
+            missing_xmp_per_folder[image_type] = 0
         total_file_count_per_folder = 0
-    # sanity check
-    # assert (
-    #     image_type_count_with_xmp.total() + image_type_count_without_xmp.total()
-    #     == image_type_count.total()
-    # ), "Image count error"
-
-    # general stats
-    print("\nStats")
-    print(f"Total files: {total_file_count_per_folder}")
-    print(f"Skipped folders: {skip_folders} count={total_skipped_folder_count}")
-    print(f"Total number of images: {image_type_count.total()}")
-    print(f"Total images with xmp files: {image_type_count_with_xmp.total()}")
-    print(f"Total images without xmp files: {image_type_count_without_xmp.total()}")
-
-    # stats per image type
-    for image_type, count in image_type_count.items():
-        print(
-            f"{image_type}: {count} (missing xmp: {image_type_count_without_xmp[image_type]})"
-        )
-
-    print("Missing xmp files in path:")
-    for path in missing_xmp_path_list:
-        print(path)
 
 
 if __name__ == "__main__":
